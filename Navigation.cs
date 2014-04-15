@@ -99,6 +99,7 @@ namespace DrRobot.JaguarControl
 
         public List<Tuple<double, double>> trajPoints = new List<Tuple<double, double>>(); //trajectory to track
         bool pointReached = false;
+        bool pathDefined = false;
         public Node randExpansionNode;
         public bool trackTrajPD = false;
         public class Particle
@@ -324,7 +325,11 @@ namespace DrRobot.JaguarControl
                     // Check if we need to create a new trajectory
                     if (motionPlanRequired)
                     {
-                        // Construct a new trajectory (lab 5)
+                        // Construct a new trajectory (lab 5) if not defined yet
+                        if (!pathDefined && trackTrajPD) 
+                        {
+                           definePath();
+                        }
                         PRMMotionPlanner();
                         motionPlanRequired = false;
                     }
@@ -831,19 +836,6 @@ namespace DrRobot.JaguarControl
             }
         }
         */
-        public void DefineTrajectory()
-        {
-            trajPoints.Clear();
-            trajPoints.Add(new Tuple<double, double>(0, -3));
-            trajPoints.Add(new Tuple<double, double>(0, -2));
-            trajPoints.Add(new Tuple<double, double>(1, -1));
-            trajPoints.Add(new Tuple<double, double>(1, 0)); 
-            trajPoints.Add(new Tuple<double, double>(1, 1));
-            trajPoints.Add(new Tuple<double, double>(1, 2));
-            //trajPoints.Add(new Tuple<double, double>(0, 0));
-        }
-
-
         #endregion
 
 
@@ -1286,21 +1278,6 @@ namespace DrRobot.JaguarControl
 
 
         #region Motion Control 
-
-        // THis function is called to follow a trajectory constructed by PRMMotionPlanner()
-        private void TrackTrajectory()
-        {
-            double distToCurrentNode = Math.Sqrt(Math.Pow(x_est - trajList[trajCurrentNode].x, 2) + Math.Pow(y_est - trajList[trajCurrentNode].y, 2));
-            if (distToCurrentNode < 0.1 && trajCurrentNode + 1 < trajSize)
-            {
-                trajCurrentNode++;
-                x_des = trajList[trajCurrentNode].x;
-                y_des = trajList[trajCurrentNode].y;
-                t_des = 0;
-            }
-
-            FlyToSetPoint();
-        }
         private void PRMMotionPlanner()
         {
             // Initialize sampling grid cell variables for weighted
@@ -1322,9 +1299,19 @@ namespace DrRobot.JaguarControl
             // Create and add the start Node
             Node startNode = new Node(x_est, y_est, 0, 0);
             AddNode(startNode);
+            double destX = 0;
+            double destY = 0;//destinations to achieve for now
 
             // Create the goal node
-            Node goalNode = new Node(desiredX, desiredY, 0, 0); 
+            if (trackTrajPD)
+            {
+                
+            }
+            else {
+                destX = desiredX;
+                destY = desiredY;
+            }
+            Node goalNode = new Node(destX, destY, 0, 0); 
                                     //i think we don't care about nodeindex and lastnode for goal at this point
            
 
@@ -1384,15 +1371,60 @@ namespace DrRobot.JaguarControl
             BuildTraj(goalNode);
 
 
-            // ****************** Additional Student Code: End   ************
-
-
-
+            // ****************** Additional Student Code: End   ***********
 
         }
 
+        // THis function is called to follow a trajectory constructed by PRMMotionPlanner()
+        private void TrackTrajectory()
+        {
+            double distToCurrentNode = Math.Sqrt(Math.Pow(x_est - trajList[trajCurrentNode].x, 2) + Math.Pow(y_est - trajList[trajCurrentNode].y, 2));
+            if (distToCurrentNode < 0.1 && trajCurrentNode + 1 < trajSize)
+            {
+                trajCurrentNode++;
+                x_des = trajList[trajCurrentNode].x;
+                y_des = trajList[trajCurrentNode].y;
+                t_des = 0;
+            }
 
+            FlyToSetPoint();
+        }
 
+        private Tuple<double, double> findNewGoal()
+        {
+            if (pointReached)
+            {
+
+                if (trajPoints.Count != 0)
+                {
+                    trajPoints.Remove(trajPoints[0]);
+                }
+                else
+                {
+                    return trajPoints[0];
+                }
+            }
+            else
+            {
+                desiredX = trajPoints[0].First;
+                desiredY = trajPoints[0].Second;
+                desiredT = Math.Atan2(desiredY - y, desiredX - x);
+                FlyToSetPoint();
+            }
+        }
+
+        public void definePath()
+        {
+            trajPoints.Clear();
+            trajPoints.Add(new Tuple<double, double>(0, -3));
+            trajPoints.Add(new Tuple<double, double>(0, -2));
+            trajPoints.Add(new Tuple<double, double>(1, -1));
+            trajPoints.Add(new Tuple<double, double>(1, 0));
+            trajPoints.Add(new Tuple<double, double>(1, 1));
+            trajPoints.Add(new Tuple<double, double>(1, 2));
+            pathDefined = true;
+            //trajPoints.Add(new Tuple<double, double>(0, 0));
+        }
 
         // This function is used to implement weighted sampling in 
         // when randomly selecting nodes to expand from in the PRM.
