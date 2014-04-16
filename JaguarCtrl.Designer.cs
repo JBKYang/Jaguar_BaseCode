@@ -378,6 +378,7 @@
             this.pictureBoxGyroZ.Size = new System.Drawing.Size(235, 80);
             this.pictureBoxGyroZ.TabIndex = 31;
             this.pictureBoxGyroZ.TabStop = false;
+            this.pictureBoxGyroZ.Click += new System.EventHandler(this.pictureBoxGyroZ_Click);
             // 
             // pictureBoxGyroY
             // 

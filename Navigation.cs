@@ -17,6 +17,9 @@ namespace DrRobot.JaguarControl
         public double x_des, y_des, t_des;
         public double desiredX, desiredY, desiredT;
         public double maxWeight;
+        public double gyro_timestep;
+        public double gyroAngle;
+        public double partAngle;
 
         public double currentEncoderPulseL, currentEncoderPulseR;
         public double lastEncoderPulseL, lastEncoderPulseR;
@@ -25,6 +28,7 @@ namespace DrRobot.JaguarControl
         public double currentAccel_x, currentAccel_y, currentAccel_z;
         public double lastAccel_x, lastAccel_y, lastAccel_z;
         public double currentGyro_x, currentGyro_y, currentGyro_z;
+        public double lastGyro_x, lastGyro_y, lastGyro_z;
         public double last_v_x, last_v_y;
         public double filteredAcc_x, filteredAcc_y;
 
@@ -33,6 +37,7 @@ namespace DrRobot.JaguarControl
         enum CONTROLLERTYPE { MANUALCONTROL, POINTTRACKER, EXPERIMENT };
         public bool motionPlanRequired, displayParticles, displayNodes, displaySimRobot;
         private JaguarCtrl jaguarControl;
+
         private AxDRROBOTSentinelCONTROLLib.AxDDrRobotSentinel realJaguar;
         private AxDDrRobotSentinel_Simulator simulatedJaguar;
         private Thread controlThread;
@@ -187,6 +192,7 @@ namespace DrRobot.JaguarControl
             // Start Control Thread
             controlThread = new Thread(new ThreadStart(runControlLoop));
             controlThread.Start();
+            
         }
 
         // All class variables are initialized here
@@ -226,6 +232,7 @@ namespace DrRobot.JaguarControl
             
             // Set random start for particles
             InitializeParticles();
+            gyroAngle = initialT;
 
             // Set default to no motionPlanRequired
             motionPlanRequired = false;
@@ -414,6 +421,13 @@ namespace DrRobot.JaguarControl
                         last_v_x = 0;
                         last_v_y = 0;
 
+                        currentGyro_x = jaguarControl.getGyro_x();
+                        currentGyro_y = jaguarControl.getGyro_y();
+                        currentGyro_z = jaguarControl.getGyro_z();
+                        lastGyro_x = currentGyro_x;
+                        lastGyro_y = currentGyro_y;
+                        lastGyro_z = currentGyro_z;
+
                     }
                     catch (Exception e) { }
                     counter++;
@@ -431,6 +445,9 @@ namespace DrRobot.JaguarControl
                 lastAccel_z = 0;
                 last_v_x = 0;
                 last_v_y = 0;
+                lastGyro_x = 0;
+                lastGyro_y = 0;
+                lastGyro_z = 0;
 
             }
         }
@@ -472,6 +489,9 @@ namespace DrRobot.JaguarControl
                     currentAccel_x = jaguarControl.getAccel_x();
                     currentAccel_y = jaguarControl.getAccel_y();
                     currentAccel_z = jaguarControl.getAccel_z();
+                    currentGyro_x = jaguarControl.getGyro_x(); //check conversion of gyro signal
+                    currentGyro_y = jaguarControl.getGyro_y();
+                    currentGyro_z = jaguarControl.getGyro_z();
 
                     // Update Encoder Measurements
                     currentEncoderPulseL = jaguarControl.realJaguar.GetEncoderPulse4();
@@ -937,15 +957,18 @@ namespace DrRobot.JaguarControl
             }
             calcStateEstimates(); //calculate state estimate based on new particle position
 
-        }
+        }    
 
         public void propagateParticles()
         {
 
             double randDistL, randDistR;
-            double partDist, partAngle;
+            double partDist;
+            double gyrostd = 0.1;
             maxWeight = -1;
 
+            //gyroAngle = integrate(currentGyro_z, gyro_timestep): trapezoidal method
+            gyroAngle = gyro_timestep * (lastGyro_z + currentGyro_z) / 2; //gyroAngle traveled   TODO: determine gyro_timestep   
            
             for (int i = 0; i < numParticles; ++i)
             {
@@ -955,8 +978,9 @@ namespace DrRobot.JaguarControl
 
                 //calculate the angle and distance travelled by the particle
                 partDist = (randDistL + randDistR) / 2;
-                partAngle = (randDistR - randDistL) / (2 * robotRadius);
-
+                //partAngle = (randDistR - randDistL) / (2 * robotRadius);
+                partAngle = gyroAngle + gyrostd * RandomGaussian(); //add random error to gyroAngle traveled            
+                
                 propagatedParticles[i].x = particles[i].x + partDist * Math.Cos(particles[i].t + partAngle / 2);
                 propagatedParticles[i].y = particles[i].y + partDist * Math.Sin(particles[i].t + partAngle / 2);
                 propagatedParticles[i].t = particles[i].t + partAngle;
@@ -967,7 +991,10 @@ namespace DrRobot.JaguarControl
                 propagatedParticles[i].w = CalculateWeight(i);
                 maxWeight = Math.Max(propagatedParticles[i].w, maxWeight);  //calculate max weight to normalize the weights
                 
+                
             }
+            //update last Gyro_z
+            lastGyro_z = currentGyro_z;
 
         }
 
@@ -1460,18 +1487,18 @@ namespace DrRobot.JaguarControl
 
         private double NormalizeAngle(double alpha)
         {
-            if (alpha > Math.PI)
+            while (alpha > Math.PI)
             {
                 alpha = alpha - (2 * Math.PI);
             }
-            if (alpha < -Math.PI)
+            while (alpha < -Math.PI)
             {
                 alpha = alpha + (2 * Math.PI);
             }
             return alpha;
         }
 
-        private double NormalizeAngle(double alpha, double range)
+        private double NormalizeAngle(double alpha, double range) //why are there two of these?
         {
             if (alpha > range)
             {

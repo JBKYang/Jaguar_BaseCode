@@ -1309,5 +1309,10 @@ namespace DrRobot.JaguarControl
             navigation.trackTrajPD = chkTrackTraj.Checked;
         }
 
+        private void pictureBoxGyroZ_Click(object sender, EventArgs e)
+        {
+
+        }
+
     }
 }
