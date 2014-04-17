@@ -20,5 +20,15 @@ namespace DrRobot.JaguarControl
             var tuple = new Tuple<T1, T2>(first, second);
             return tuple;
         }
+            // Copy Constructor
+        public static Tuple<T1, T2 > newTuple<T1,T2> (Tuple <T1, T2> origTuple) 
+        {
+            T1 tempFirst = origTuple.First;
+            T2 tempSecond = origTuple.Second;
+            var tuple = new Tuple<T1, T2>(tempFirst, tempSecond);
+            return tuple;
+        }
+          
     }
+
 }

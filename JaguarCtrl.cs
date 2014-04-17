@@ -42,16 +42,16 @@ namespace DrRobot.JaguarControl
         #region Graphics Variables
         GoogleEarth gEarth = new GoogleEarth();
         public double mapResolution;
-        public float metersToPixels = 10;
-        private double zoomConstant = 2.0;
+        public float metersToPixels = 10;//was 10
+        private double zoomConstant = 0.2;
         private static int paneWidth = 484;
         private static int paneHeight = 415;
         private static int xMin = 11; 
         private static int yMin = 41;
         private static int xMax = paneWidth + xMin; 
         private static int yMax = paneHeight + yMin;
-        private static int xCenter = xMin + paneWidth / 2;
-        private static int yCenter = yMin + paneHeight / 2;
+        private static int xCenter = xMin + paneWidth *2/ 6;
+        private static int yCenter = yMin + paneHeight *2/ 6;
         private static Point oPoint = new Point(xMin, yMin);
         private static Pen blackPen = new Pen(Color.Black, 1);
         private static Pen whitePen = new Pen(Color.White, 10);

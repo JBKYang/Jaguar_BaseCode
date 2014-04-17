@@ -101,7 +101,6 @@ namespace DrRobot.JaguarControl
         bool pointReached = false;
         bool pathDefined = false;
         public Node randExpansionNode;
-        public bool trackTrajPD = false;
         public class Particle
         {
             public double x, y, t, w;
@@ -136,6 +135,10 @@ namespace DrRobot.JaguarControl
         public Node[,] NodesInCells;
         public Node[] trajList, nodeList;
         public int trajSize, trajCurrentNode, numNodes;
+        public bool trackTrajPD = false;
+        public bool allGoalsRreached = false;
+        public double destX = 0;
+        public double destY = 0;//destinations to achieve for now
 
         public class Node
         {
@@ -257,8 +260,12 @@ namespace DrRobot.JaguarControl
             numNodes = 0;
             trajList[0] = new Node(0, 0, 0, 0);
             trajSize = 0;
-
-            
+            trajPoints.Clear();
+            trackTrajPD = false;
+            allGoalsRreached = false;
+            destX = 0;
+            destY = 0;//destinations to achieve for now
+            pathDefined = false;
         }
 
         // This function is called from the dialogue window "Reset Button"
@@ -722,9 +729,9 @@ namespace DrRobot.JaguarControl
 
             
             //find difference from the desired point
-                deltaX = x_des - x;
-                deltaY = y_des - y;
-                deltat = t_des - t;
+                deltaX = x_des - x_est;
+                deltaY = y_des - y_est;
+                deltat = t_des - t_est;
                 deltat = NormalizeAngle(deltat);
 
             //calculate rho and alpha
@@ -1299,13 +1306,13 @@ namespace DrRobot.JaguarControl
             // Create and add the start Node
             Node startNode = new Node(x_est, y_est, 0, 0);
             AddNode(startNode);
-            double destX = 0;
-            double destY = 0;//destinations to achieve for now
 
             // Create the goal node
             if (trackTrajPD)
             {
-                
+                Tuple<double, double>tempGoal = findNewGoal();
+                destX = tempGoal.First;
+                destY = tempGoal.Second;
             }
             else {
                 destX = desiredX;
@@ -1366,7 +1373,7 @@ namespace DrRobot.JaguarControl
                 iterations++;
             }
 
-
+            
             // Create the trajectory to follow
             BuildTraj(goalNode);
 
@@ -1378,7 +1385,9 @@ namespace DrRobot.JaguarControl
         // THis function is called to follow a trajectory constructed by PRMMotionPlanner()
         private void TrackTrajectory()
         {
-            double distToCurrentNode = Math.Sqrt(Math.Pow(x_est - trajList[trajCurrentNode].x, 2) + Math.Pow(y_est - trajList[trajCurrentNode].y, 2));
+            double distToCurrentNode = 0;
+            distToCurrentNode = Math.Sqrt(Math.Pow(x_est - trajList[trajCurrentNode].x, 2) + Math.Pow(y_est - trajList[trajCurrentNode].y, 2));
+
             if (distToCurrentNode < 0.1 && trajCurrentNode + 1 < trajSize)
             {
                 trajCurrentNode++;
@@ -1386,42 +1395,38 @@ namespace DrRobot.JaguarControl
                 y_des = trajList[trajCurrentNode].y;
                 t_des = 0;
             }
-
             FlyToSetPoint();
+            distToCurrentNode = Math.Sqrt(Math.Pow(x_est - trajList[trajCurrentNode].x, 2) + Math.Pow(y_est - trajList[trajCurrentNode].y, 2));
+            if (distToCurrentNode < 0.1 && trajCurrentNode + 1 >= trajSize && trackTrajPD && !allGoalsRreached)
+            {
+                pointReached = true;
+                motionPlanRequired = true;
+            }
         }
 
         private Tuple<double, double> findNewGoal()
         {
             if (pointReached)
             {
-
-                if (trajPoints.Count != 0)
-                {
+               // motionPlanRequired = true;
+                if (trajPoints.Count != 1)
                     trajPoints.Remove(trajPoints[0]);
-                }
-                else
-                {
-                    return trajPoints[0];
-                }
+                else 
+                    allGoalsRreached = true;
             }
-            else
-            {
-                desiredX = trajPoints[0].First;
-                desiredY = trajPoints[0].Second;
-                desiredT = Math.Atan2(desiredY - y, desiredX - x);
-                FlyToSetPoint();
-            }
+            return trajPoints[0];
         }
 
         public void definePath()
         {
             trajPoints.Clear();
-            trajPoints.Add(new Tuple<double, double>(0, -3));
-            trajPoints.Add(new Tuple<double, double>(0, -2));
-            trajPoints.Add(new Tuple<double, double>(1, -1));
-            trajPoints.Add(new Tuple<double, double>(1, 0));
-            trajPoints.Add(new Tuple<double, double>(1, 1));
+            trajPoints.Add(new Tuple<double, double>(0, 1));
             trajPoints.Add(new Tuple<double, double>(1, 2));
+            trajPoints.Add(new Tuple<double, double>(-1, -1));
+            //trajPoints.Add(new Tuple<double, double>(1, -1));
+            //trajPoints.Add(new Tuple<double, double>(1, 0));
+            //trajPoints.Add(new Tuple<double, double>(1, 1));
+            //trajPoints.Add(new Tuple<double, double>(1, 2));
             pathDefined = true;
             //trajPoints.Add(new Tuple<double, double>(0, 0));
         }
