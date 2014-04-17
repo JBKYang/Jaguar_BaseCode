@@ -968,7 +968,7 @@ namespace DrRobot.JaguarControl
             maxWeight = -1;
 
             //gyroAngle = integrate(currentGyro_z, gyro_timestep): trapezoidal method
-            gyroAngle = gyro_timestep * (lastGyro_z + currentGyro_z) / 2; //gyroAngle traveled   TODO: determine gyro_timestep   
+            gyroAngle = deltaT * (lastGyro_z + currentGyro_z) / 2; //gyroAngle traveled   
            
             for (int i = 0; i < numParticles; ++i)
             {
