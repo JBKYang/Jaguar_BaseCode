@@ -43,15 +43,15 @@ namespace DrRobot.JaguarControl
         GoogleEarth gEarth = new GoogleEarth();
         public double mapResolution;
         public float metersToPixels = 10;//was 10
-        private double zoomConstant = 0.2;
+        private double zoomConstant = 1;//was 2
         private static int paneWidth = 484;
         private static int paneHeight = 415;
-        private static int xMin = 11; 
-        private static int yMin = 41;
+        private static int xMin = 2;//11; 
+        private static int yMin = 20;//41;
         private static int xMax = paneWidth + xMin; 
         private static int yMax = paneHeight + yMin;
-        private static int xCenter = xMin + paneWidth *2/ 6;
-        private static int yCenter = yMin + paneHeight *2/ 6;
+        private static int xCenter = xMin + paneWidth *2/ 6;//changed this
+        private static int yCenter = yMin + paneHeight *2/ 6;//changed this
         private static Point oPoint = new Point(xMin, yMin);
         private static Pen blackPen = new Pen(Color.Black, 1);
         private static Pen whitePen = new Pen(Color.White, 10);
@@ -59,7 +59,7 @@ namespace DrRobot.JaguarControl
         private static Pen goldPen = new Pen(Color.Gold, 1);
         private static Pen trackPen = new Pen(Brushes.LightGray);
         private static Pen trajPen = new Pen(Color.Cyan, 2);
-        private static Pen wtrajPen = new Pen(Color.White, 2);
+       // private static Pen wtrajPen = new Pen(Color.White, 2);
         private static Pen wallPen = new Pen(Brushes.LightGray, 4);
         private static Pen particlePen = new Pen(Brushes.Red, 1);
         private static Pen estimatePen = new Pen(Brushes.Blue, 2);
@@ -236,8 +236,8 @@ namespace DrRobot.JaguarControl
                 g.FillRectangle(Brushes.Black, new Rectangle(xMin, yMin, paneWidth, paneHeight));
 
                 // Add Grid
-                int numXLines = (int)(0.5 * paneWidth / (mapResolution * cellWidth)) + 1;
-                int numYLines = (int)(0.5 * paneHeight / (mapResolution * cellWidth)) + 1;
+                int numXLines = (int)((1.0) * paneWidth / (mapResolution * cellWidth)) + 1;//changed here
+                int numYLines = (int)((1.0) * paneHeight / (mapResolution * cellWidth)) + 1;
                 for (int i = 0; i < numXLines; i++)
                 {
                     float Xp = (float)(xCenter + i * mapResolution * cellWidth);
@@ -326,12 +326,12 @@ namespace DrRobot.JaguarControl
                     g.DrawLine(trajPen, xCenter + (float)navigation.trajList[i].x * (float)mapResolution, yCenter - (float)navigation.trajList[i].y * (float)mapResolution,
                          xCenter + (float)navigation.trajList[i + 1].x * (float)mapResolution, yCenter - (float)navigation.trajList[i + 1].y * (float)mapResolution);
                }
-                if (navigation.trajSize > 0)
-                {
-                    g.DrawLine(wtrajPen, xCenter + (float)navigation.randExpansionNode.x * (float)mapResolution, yCenter - (float)navigation.randExpansionNode.y * (float)mapResolution,
-                             xCenter + (float)navigation.trajList[navigation.randExpansionNode.lastNode].x
-                             * (float)mapResolution, yCenter - (float)navigation.trajList[navigation.randExpansionNode.lastNode].y * (float)mapResolution);
-                }
+         //       if (navigation.trajSize > 0)
+           //     {
+             //       g.DrawLine(wtrajPen, xCenter + (float)navigation.randExpansionNode.x * (float)mapResolution, yCenter - (float)navigation.randExpansionNode.y * (float)mapResolution,
+               //              xCenter + (float)navigation.trajList[navigation.randExpansionNode.lastNode].x
+                 //            * (float)mapResolution, yCenter - (float)navigation.trajList[navigation.randExpansionNode.lastNode].y * (float)mapResolution);
+                //}
                 // Paint background of bitmap
                 g.FillRectangle(Brushes.LightGray, new Rectangle(xMin - 40, yMin, 40, paneHeight));
 
@@ -1312,6 +1312,11 @@ namespace DrRobot.JaguarControl
         private void pictureBoxGyroZ_Click(object sender, EventArgs e)
         {
 
+        }
+
+        private void chknMP_CheckedChanged(object sender, EventArgs e)
+        {
+            navigation.followTrack = chknMP.Checked;
         }
 
     }

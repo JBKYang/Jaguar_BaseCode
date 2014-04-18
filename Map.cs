@@ -14,10 +14,10 @@ namespace DrRobot.JaguarControl
         private double[] segmentSizes;
         private double[] intercepts;
 
-        private double minWorkspaceX = -10;
-        private double maxWorkspaceX = 10;
-        private double minWorkspaceY = -10;
-        private double maxWorkspaceY = 10;
+        private double minWorkspaceX = -40;//CHANGE
+        private double maxWorkspaceX = 40;
+        private double minWorkspaceY = -40;
+        private double maxWorkspaceY = 40;
         // New Class
         public class Zone
         {
@@ -54,7 +54,7 @@ namespace DrRobot.JaguarControl
             // used both for visual display and for localization.
 
             // ****************** Additional Student Code: Start ************
-
+            #region drawMap
             // Change hard code here to change map:
             numMapSegments = 30;
             mapSegmentCorners = new double[numMapSegments, 2, 2];
@@ -219,56 +219,56 @@ namespace DrRobot.JaguarControl
             mapSegmentCorners[29, 1, 0] = (8.477 - 6.41 + (9.401 - 9.317) + 3.518 + (20.025-6.936));
             mapSegmentCorners[29, 1, 1] = -(1.865 - 0.07 + 1.13 + 17.163);//other Wall
             //vertical walls 
-
+            
             /////////////////////////////////////////////////////////////s
-            //numMapSegments = 8;
-            //mapSegmentCorners = new double[numMapSegments, 2, 2];
-            //slopes = new double[numMapSegments];
-            //intercepts = new double[numMapSegments];
-            //segmentSizes = new double[numMapSegments];
+           /* numMapSegments = 8;
+            mapSegmentCorners = new double[numMapSegments, 2, 2];
+            slopes = new double[numMapSegments];
+            intercepts = new double[numMapSegments];
+            segmentSizes = new double[numMapSegments];
 
-            //mapSegmentCorners[0, 0, 0] = 3.38 + 5.79 + 3.55 / 2;
-            //mapSegmentCorners[0, 0, 1] = 2.794;
-            //mapSegmentCorners[0, 1, 0] = -3.38 - 5.79 - 3.55 / 2;
-            //mapSegmentCorners[0, 1, 1] = 2.794;
+            mapSegmentCorners[0, 0, 0] = 3.38 + 5.79 + 3.55 / 2;
+            mapSegmentCorners[0, 0, 1] = 2.794;
+            mapSegmentCorners[0, 1, 0] = -3.38 - 5.79 - 3.55 / 2;
+            mapSegmentCorners[0, 1, 1] = 2.794;
 
-            //mapSegmentCorners[1, 0, 0] = -3.55 / 2;
-            //mapSegmentCorners[1, 0, 1] = 0.0;
-            //mapSegmentCorners[1, 1, 0] = -3.55 / 2;
-            //mapSegmentCorners[1, 1, 1] = -2.74;
+            mapSegmentCorners[1, 0, 0] = -3.55 / 2;
+            mapSegmentCorners[1, 0, 1] = 0.0;
+            mapSegmentCorners[1, 1, 0] = -3.55 / 2;
+            mapSegmentCorners[1, 1, 1] = -2.74;
 
-            //mapSegmentCorners[2, 0, 0] = 3.55 / 2;
-            //mapSegmentCorners[2, 0, 1] = 0.0;
-            //mapSegmentCorners[2, 1, 0] = 3.55 / 2;
-            //mapSegmentCorners[2, 1, 1] = -2.74;
+            mapSegmentCorners[2, 0, 0] = 3.55 / 2;
+            mapSegmentCorners[2, 0, 1] = 0.0;
+            mapSegmentCorners[2, 1, 0] = 3.55 / 2;
+            mapSegmentCorners[2, 1, 1] = -2.74;
 
-            //mapSegmentCorners[3, 0, 0] = 3.55 / 2;
-            //mapSegmentCorners[3, 0, 1] = 0.0;
-            //mapSegmentCorners[3, 1, 0] = 3.55 / 2 + 5.79;
-            //mapSegmentCorners[3, 1, 1] = 0.0;
+            mapSegmentCorners[3, 0, 0] = 3.55 / 2;
+            mapSegmentCorners[3, 0, 1] = 0.0;
+            mapSegmentCorners[3, 1, 0] = 3.55 / 2 + 5.79;
+            mapSegmentCorners[3, 1, 1] = 0.0;
 
-            //mapSegmentCorners[4, 0, 0] = -3.55 / 2;
-            //mapSegmentCorners[4, 0, 1] = 0.0;
-            //mapSegmentCorners[4, 1, 0] = -3.55 / 2 - 5.79;
-            //mapSegmentCorners[4, 1, 1] = 0.0;
+            mapSegmentCorners[4, 0, 0] = -3.55 / 2;
+            mapSegmentCorners[4, 0, 1] = 0.0;
+            mapSegmentCorners[4, 1, 0] = -3.55 / 2 - 5.79;
+            mapSegmentCorners[4, 1, 1] = 0.0;
 
-            //mapSegmentCorners[5, 0, 0] = -3.55 / 2;
-            //mapSegmentCorners[5, 0, 1] = -2.74;
-            //mapSegmentCorners[5, 1, 0] = -3.55 / 2 - 3.05;
-            //mapSegmentCorners[5, 1, 1] = -2.74;
+            mapSegmentCorners[5, 0, 0] = -3.55 / 2;
+            mapSegmentCorners[5, 0, 1] = -2.74;
+            mapSegmentCorners[5, 1, 0] = -3.55 / 2 - 3.05;
+            mapSegmentCorners[5, 1, 1] = -2.74;
 
-            //mapSegmentCorners[6, 0, 0] = 3.55 / 2;
-            //mapSegmentCorners[6, 0, 1] = -2.74;
-            //mapSegmentCorners[6, 1, 0] = 3.55 / 2 + 3.05;
-            //mapSegmentCorners[6, 1, 1] = -2.74;
+            mapSegmentCorners[6, 0, 0] = 3.55 / 2;
+            mapSegmentCorners[6, 0, 1] = -2.74;
+            mapSegmentCorners[6, 1, 0] = 3.55 / 2 + 3.05;
+            mapSegmentCorners[6, 1, 1] = -2.74;
 
-            //mapSegmentCorners[7, 0, 0] = 5.03 / 2;
-            //mapSegmentCorners[7, 0, 1] = -2.74 - 2.31;
-            //mapSegmentCorners[7, 1, 0] = -5.03 / 2;
-            //mapSegmentCorners[7, 1, 1] = -2.74 - 2.31;
+            mapSegmentCorners[7, 0, 0] = 5.03 / 2;
+            mapSegmentCorners[7, 0, 1] = -2.74 - 2.31;
+            mapSegmentCorners[7, 1, 0] = -5.03 / 2;
+            mapSegmentCorners[7, 1, 1] = -2.74 - 2.31;*/
             
             // ****************** Additional Student Code: End   ************
-
+#endregion
             // Set map parameters
             // These will be useful in your future coding.
             minX = 9999; minY = 9999; maxX = -9999; maxY = -9999;

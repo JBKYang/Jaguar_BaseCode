@@ -62,8 +62,8 @@ namespace DrRobot.JaguarControl
         private double diffEncoderPulseL, diffEncoderPulseR;
         private double maxVelocity = 0.25;
         private double Kpho = 1;
-        private double Kalpha = 2;//8
-        private double Kbeta = -0.5;//-0.5//-1.0;
+        private double Kalpha = 8.0;//2;//8
+        private double Kbeta = -0.5;//-0.5;//-0.5//-1.0;
         const double alphaTrackingAccuracy = 0.10;
         const double betaTrackingAccuracy = 0.1;
         const double phoTrackingAccuracy = 0.10;
@@ -124,13 +124,13 @@ namespace DrRobot.JaguarControl
         }
 
         // Motion Planner Variables
-        const int numXCells = 20;
-        const int numYCells = 20;
+        const int numXCells = 40;
+        const int numYCells = 40;
         const int maxNumNodes = 5000;
-        const float minWorkspaceX = -10.0f;
-        const float maxWorkspaceX = 10.0f;
-        const float minWorkspaceY = -10.0f;
-        const float maxWorkspaceY = 10.0f;
+        const float minWorkspaceX = -40.0f;
+        const float maxWorkspaceX = 40.0f;
+        const float minWorkspaceY = -40.0f;
+        const float maxWorkspaceY = 40.0f;
 
         // Motion Planner Variables 
         public double samplingCellSizeX, samplingCellSizeY;
@@ -144,6 +144,7 @@ namespace DrRobot.JaguarControl
         public bool allGoalsRreached = false;
         public double destX = 0;
         public double destY = 0;//destinations to achieve for now
+        public bool followTrack = false;
 
         public class Node
         {
@@ -271,6 +272,7 @@ namespace DrRobot.JaguarControl
             destX = 0;
             destY = 0;//destinations to achieve for now
             pathDefined = false;
+            followTrack = false;
         }
 
         // This function is called from the dialogue window "Reset Button"
@@ -732,16 +734,16 @@ namespace DrRobot.JaguarControl
             double v, w;
             double SR, SL, desiredVR, desiredVL;
 
-            
+
             //find difference from the desired point
-                deltaX = x_des - x_est;
-                deltaY = y_des - y_est;
-                deltat = t_des - t_est;
-                deltat = NormalizeAngle(deltat);
+                deltaX = x_des - x;
+                deltaY = y_des - y;
+                deltat = t_des - t;
+                deltat = NormalizeAngle(deltat);//change x, y to x_est and y_est
 
             //calculate rho and alpha
             rho = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
-            alpha = -t_est + Math.Atan2(deltaY, deltaX);
+            alpha = -t + Math.Atan2(deltaY, deltaX);//changed t_est and t
 
             alpha = NormalizeAngle(alpha);
             v = Kpho * rho;
@@ -1279,7 +1281,7 @@ namespace DrRobot.JaguarControl
 
 
             // Create and add the start Node
-            Node startNode = new Node(x_est, y_est, 0, 0);
+            Node startNode = new Node(x, y, 0, 0);//change x, y to x_est and y_est
             AddNode(startNode);
 
             // Create the goal node
@@ -1296,16 +1298,26 @@ namespace DrRobot.JaguarControl
             Node goalNode = new Node(destX, destY, 0, 0); 
                                     //i think we don't care about nodeindex and lastnode for goal at this point
            
-
+            
             // Loop until path created
             bool pathFound = false;
             int maxIterations = maxNumNodes;
             int iterations = 0;
             Random randGenerator = new Random();
+            // find if start and goal nodes can be travelled to without propagating particles
+            bool colFound = map.CollisionFound(startNode, goalNode, robotRadius); //tol = robotRadius, can change it later
 
+            if (!colFound)
+            {
+                
+                goalNode.nodeIndex = numNodes;
+                goalNode.lastNode = startNode.nodeIndex;
+                AddNode(goalNode);
+                pathFound = true;
+            }
+            
 
-
-
+            //otherwise throw particles to create map
             while (iterations < maxIterations && !pathFound)
             {
                 int randCellNumber = randGenerator.Next(numOccupiedCells);
@@ -1328,7 +1340,7 @@ namespace DrRobot.JaguarControl
                 Node newNode = new Node(newX, newY, newNodeindex, newLastNode);
                 
                 //check if the newNode is collision free
-                bool colFound = map.CollisionFound(randExpansionNode, newNode, robotRadius); //tol = robotRadius, can change it later
+                colFound = map.CollisionFound(randExpansionNode, newNode, robotRadius); //tol = robotRadius, can change it later
                 if (!colFound)
                 {
                     AddNode(newNode);
@@ -1361,18 +1373,20 @@ namespace DrRobot.JaguarControl
         private void TrackTrajectory()
         {
             double distToCurrentNode = 0;
-            distToCurrentNode = Math.Sqrt(Math.Pow(x_est - trajList[trajCurrentNode].x, 2) + Math.Pow(y_est - trajList[trajCurrentNode].y, 2));
+            distToCurrentNode = Math.Sqrt(Math.Pow(x - trajList[trajCurrentNode].x, 2) + Math.Pow(y - trajList[trajCurrentNode].y, 2));//change x, y to x_est and y_est
 
             if (distToCurrentNode < 0.1 && trajCurrentNode + 1 < trajSize)
             {
                 trajCurrentNode++;
                 x_des = trajList[trajCurrentNode].x;
                 y_des = trajList[trajCurrentNode].y;
+                //desiredT = Math.Atan2(desiredY - y, desiredX - x);
+              //  t_des = Math.Atan2(y_des - y, x_des - x);//change x,y to x_est and y_est
                 t_des = 0;
             }
             FlyToSetPoint();
-            distToCurrentNode = Math.Sqrt(Math.Pow(x_est - trajList[trajCurrentNode].x, 2) + Math.Pow(y_est - trajList[trajCurrentNode].y, 2));
-            if (distToCurrentNode < 0.1 && trajCurrentNode + 1 >= trajSize && trackTrajPD && !allGoalsRreached)
+            distToCurrentNode = Math.Sqrt(Math.Pow(x - trajList[trajCurrentNode].x, 2) + Math.Pow(y - trajList[trajCurrentNode].y, 2));//change x, y to x_est and y_est
+            if (distToCurrentNode < 0.1 && trajCurrentNode + 1 >= trajSize && trackTrajPD && !allGoalsRreached&&trackTrajPD)
             {
                 pointReached = true;
                 motionPlanRequired = true;
@@ -1395,10 +1409,11 @@ namespace DrRobot.JaguarControl
         public void definePath()
         {
             trajPoints.Clear();
-            trajPoints.Add(new Tuple<double, double>(0, 1));
-            trajPoints.Add(new Tuple<double, double>(1, 2));
-            trajPoints.Add(new Tuple<double, double>(-1, -1));
-            //trajPoints.Add(new Tuple<double, double>(1, -1));
+            trajPoints.Add(new Tuple<double, double>(0, 0));
+            trajPoints.Add(new Tuple<double, double>(4,0));
+            trajPoints.Add(new Tuple<double, double>(5, -5));
+            trajPoints.Add(new Tuple<double, double>(6, -13));
+            trajPoints.Add(new Tuple<double, double>(4, -21));
             //trajPoints.Add(new Tuple<double, double>(1, 0));
             //trajPoints.Add(new Tuple<double, double>(1, 1));
             //trajPoints.Add(new Tuple<double, double>(1, 2));

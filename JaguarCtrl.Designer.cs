@@ -126,6 +126,7 @@
             this.dataFileName = new System.Windows.Forms.TextBox();
             this.tabPage2 = new System.Windows.Forms.TabPage();
             this.chkTrackTraj = new System.Windows.Forms.CheckBox();
+            this.chknMP = new System.Windows.Forms.CheckBox();
             this.groupBoxGPSIMU.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.realJaguar)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBoxIMUGPS)).BeginInit();
@@ -1218,7 +1219,7 @@
             // chkTrackTraj
             // 
             this.chkTrackTraj.AutoSize = true;
-            this.chkTrackTraj.Location = new System.Drawing.Point(284, 434);
+            this.chkTrackTraj.Location = new System.Drawing.Point(284, 418);
             this.chkTrackTraj.Name = "chkTrackTraj";
             this.chkTrackTraj.Size = new System.Drawing.Size(75, 17);
             this.chkTrackTraj.TabIndex = 89;
@@ -1226,12 +1227,24 @@
             this.chkTrackTraj.UseVisualStyleBackColor = true;
             this.chkTrackTraj.CheckedChanged += new System.EventHandler(this.chkTrackTraj_CheckedChanged);
             // 
+            // chknMP
+            // 
+            this.chknMP.AutoSize = true;
+            this.chknMP.Location = new System.Drawing.Point(284, 434);
+            this.chknMP.Name = "chknMP";
+            this.chknMP.Size = new System.Drawing.Size(77, 17);
+            this.chknMP.TabIndex = 90;
+            this.chknMP.Text = "Follow Traj";
+            this.chknMP.UseVisualStyleBackColor = true;
+            this.chknMP.CheckedChanged += new System.EventHandler(this.chknMP_CheckedChanged);
+            // 
             // JaguarCtrl
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.ControlLight;
             this.ClientSize = new System.Drawing.Size(1016, 718);
+            this.Controls.Add(this.chknMP);
             this.Controls.Add(this.chkTrackTraj);
             this.Controls.Add(this.TabUserInputs);
             this.Controls.Add(this.txtStartTheta);
@@ -1416,6 +1429,7 @@
         private System.Windows.Forms.CheckBox logLaserData;
         private System.Windows.Forms.CheckBox logParticles;
         private System.Windows.Forms.CheckBox chkTrackTraj;
+        private System.Windows.Forms.CheckBox chknMP;
     }
 }
 
