@@ -1243,6 +1243,7 @@ namespace DrRobot.JaguarControl
             navigation.logParticleEst = logParticleEst.Checked;
             //navigation.Reset();
             navigation.resetEverything = true;
+            navigation.trackTrajPD = chkTrackTraj.Checked;
             
         }
         
