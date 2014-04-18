@@ -11,7 +11,7 @@ namespace DrRobot.JaguarControl
     {
         #region Navigation Variables
         public long[] LaserData = new long[DrRobot.JaguarControl.JaguarCtrl.DISDATALEN];
-        public double initialX, initialY, initialT;
+        public double initialX=0, initialY=0, initialT=0;
         public double x, y, t;
         public double x_est, y_est, t_est;
         public double x_des, y_des, t_des;
@@ -21,7 +21,7 @@ namespace DrRobot.JaguarControl
         public double gyroAngle;
         public double partAngle;
         public bool newOdom = false;
-        public double lasersum, prevLaser;
+        public double lasersum =0, prevLaser =0;
 
         public double currentEncoderPulseL, currentEncoderPulseR;
         public double lastEncoderPulseL, lastEncoderPulseR;
@@ -185,11 +185,13 @@ namespace DrRobot.JaguarControl
             map = new Map();
             particles = new Particle[numParticles];
             propagatedParticles = new Particle[numParticles];
+            tempParticles = new Particle[4*numParticles];
             // Create particles
             for (int i = 0; i < numParticles; i++)
             {
                 particles[i] = new Particle();
                 propagatedParticles[i] = new Particle();
+                tempParticles[i] = new Particle();
             }
 
 
@@ -242,7 +244,7 @@ namespace DrRobot.JaguarControl
             
             // Set random start for particles
             InitializeParticles();
-            gyroAngle = initialT;
+            //gyroAngle = initialT;
 
             // Set default to no motionPlanRequired
             motionPlanRequired = false;
@@ -492,7 +494,7 @@ namespace DrRobot.JaguarControl
                 {
                     for (int i = 0; i < LaserData.Length; i = i + laserStepSize)
                     {
-                        LaserData[i] = (long)(1000 * map.GetClosestWallDistance(x, y, t - 1.57 + laserAngles[i]));
+                        LaserData[i] = (long)(1000 * map.GetClosestWallDistance(x, y, t - initialT + laserAngles[i]));
                     }
                     laserCounter = 0;
                     newLaserData = true;
@@ -736,28 +738,28 @@ namespace DrRobot.JaguarControl
 
 
             //find difference from the desired point
-                deltaX = x_des - x;
-                deltaY = y_des - y;
-                deltat = t_des - t;
-                deltat = NormalizeAngle(deltat);//change x, y to x_est and y_est
+                deltaX = x_des - x_est;
+                deltaY = y_des - y_est;
+                deltat = t_des - t_est;
+                NormalizeAngles(deltat);//change x, y to x_est and y_est
 
             //calculate rho and alpha
             rho = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
             alpha = -t + Math.Atan2(deltaY, deltaX);//changed t_est and t
 
-            alpha = NormalizeAngle(alpha);
+            NormalizeAngles(alpha);
             v = Kpho * rho;
 
             //change control law if the desired point is behind the robot
             if (Math.Abs(alpha) > Math.PI / 2)
             {
                 alpha = -t + Math.Atan2(-deltaY, -deltaX);
-                alpha = NormalizeAngle(alpha);
+                NormalizeAngles(alpha);
                 v = -Kpho * rho;
             }
 
             beta = deltat - alpha;
-            beta = NormalizeAngle(beta);
+            NormalizeAngles(beta);
             w = Kalpha * alpha + Kbeta * beta;
 
             // stop if destination reached
@@ -972,9 +974,9 @@ namespace DrRobot.JaguarControl
             double wheelstdR = 0.4 * wheelDistanceR; //40% of distance travelled by wheel
             double wheelstdL = 0.4 * wheelDistanceL; //m
 
-            double gyrostd = 0.1;
+            //double gyrostd = 0.1;
             //gyroAngle = integrate(currentGyro_z, gyro_timestep): trapezoidal method
-            gyroAngle = deltaT * (lastGyro_z + currentGyro_z) / 2; //gyroAngle traveled 
+            //gyroAngle = deltaT * (lastGyro_z + currentGyro_z) / 2; //gyroAngle traveled 
 
             for (int p = 0; p < numParticles; p++)
             {
@@ -989,14 +991,14 @@ namespace DrRobot.JaguarControl
                 //propagate particles with odometry
                 propagatedParticles[p].x = particles[p].x + deltaXRand;
                 propagatedParticles[p].y = particles[p].y + deltaYRand;
-                //propagatedParticles[p].t = particles[p].t + angleTravelledRand;
-                partAngle = gyroAngle + gyrostd * RandomGaussian(); //add random error to gyroAngle traveled 
-                propagatedParticles[p].t = particles[p].t + partAngle;
+                propagatedParticles[p].t = particles[p].t + angleTravelledRand;//COMMENTED
+               // partAngle = gyroAngle + gyrostd * RandomGaussian(); //add random error to gyroAngle traveled //COMMENT THIS
+                //propagatedParticles[p].t = particles[p].t + partAngle;//COMMENTED
                 NormalizeAngles(propagatedParticles[p].t);
 
             }
             //update last Gyro_z
-            lastGyro_z = currentGyro_z;
+            //lastGyro_z = currentGyro_z;
         }
 
         public void CalculateAllWeights()
@@ -1113,7 +1115,7 @@ namespace DrRobot.JaguarControl
             }
             prevLaser = lasersum;
 
-            if ((newOdom) && (newLaserData))
+            if ((newOdom) || (newLaserData))
             {
                 CalculateAllWeights();
                 NormalizeWeights();
@@ -1281,7 +1283,7 @@ namespace DrRobot.JaguarControl
 
 
             // Create and add the start Node
-            Node startNode = new Node(x, y, 0, 0);//change x, y to x_est and y_est
+            Node startNode = new Node(x_est, y_est, 0, 0);//change x, y to x_est and y_est
             AddNode(startNode);
 
             // Create the goal node
@@ -1373,7 +1375,7 @@ namespace DrRobot.JaguarControl
         private void TrackTrajectory()
         {
             double distToCurrentNode = 0;
-            distToCurrentNode = Math.Sqrt(Math.Pow(x - trajList[trajCurrentNode].x, 2) + Math.Pow(y - trajList[trajCurrentNode].y, 2));//change x, y to x_est and y_est
+            distToCurrentNode = Math.Sqrt(Math.Pow(x_est - trajList[trajCurrentNode].x, 2) + Math.Pow(y_est - trajList[trajCurrentNode].y, 2));//change x, y to x_est and y_est
 
             if (distToCurrentNode < 0.1 && trajCurrentNode + 1 < trajSize)
             {
@@ -1385,7 +1387,7 @@ namespace DrRobot.JaguarControl
                 t_des = 0;
             }
             FlyToSetPoint();
-            distToCurrentNode = Math.Sqrt(Math.Pow(x - trajList[trajCurrentNode].x, 2) + Math.Pow(y - trajList[trajCurrentNode].y, 2));//change x, y to x_est and y_est
+            distToCurrentNode = Math.Sqrt(Math.Pow(x_est - trajList[trajCurrentNode].x, 2) + Math.Pow(y_est - trajList[trajCurrentNode].y, 2));//change x, y to x_est and y_est
             if (distToCurrentNode < 0.1 && trajCurrentNode + 1 >= trajSize && trackTrajPD && !allGoalsRreached&&trackTrajPD)
             {
                 pointReached = true;
@@ -1510,19 +1512,6 @@ namespace DrRobot.JaguarControl
                 return -1.0;
             else
                 return 0.0;
-        }
-
-        private double NormalizeAngle(double alpha)
-        {
-            while (alpha > Math.PI)
-            {
-                alpha = alpha - (2 * Math.PI);
-            }
-            while (alpha < -Math.PI)
-            {
-                alpha = alpha + (2 * Math.PI);
-            }
-            return alpha;
         }
 
 
