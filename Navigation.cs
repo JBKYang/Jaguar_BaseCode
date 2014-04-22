@@ -96,7 +96,7 @@ namespace DrRobot.JaguarControl
         public Particle[] particles;
         public Particle[] propagatedParticles;
         public Particle[] tempParticles;
-        public int numParticles = 5000;
+        public int numParticles = 400;
         public double K_wheelRandomness = 0.15;//0.25
         public static Random random = new Random();
         public bool newLaserData = false;
@@ -105,7 +105,9 @@ namespace DrRobot.JaguarControl
         public double[] laserAngles;
         public double[] Weights;
         private int laserCounter;
-        private int laserStepSize = 25;
+        private int laserStepSize = 10; 
+        public double[] distDiffs;
+
 
         public List<Tuple<double, double>> trajPoints = new List<Tuple<double, double>>(); //trajectory to track
         bool pointReached = false;
@@ -191,12 +193,15 @@ namespace DrRobot.JaguarControl
             particles = new Particle[numParticles];
             propagatedParticles = new Particle[numParticles];
             tempParticles = new Particle[4*numParticles];
+           
+
             // Create particles
             for (int i = 0; i < numParticles; i++)
             {
                 particles[i] = new Particle();
                 propagatedParticles[i] = new Particle();
                 tempParticles[i] = new Particle();
+                
             }
 
 
@@ -261,6 +266,7 @@ namespace DrRobot.JaguarControl
             displaySimRobot = true;
 
             laserAngles = new double[LaserData.Length];
+            distDiffs = new double[LaserData.Length];
             for (int i = 0; i < LaserData.Length; i++)
                 laserAngles[i] = DrRobot.JaguarControl.JaguarCtrl.startAng + DrRobot.JaguarControl.JaguarCtrl.stepAng * i;
 
@@ -512,11 +518,13 @@ namespace DrRobot.JaguarControl
                 // Get most recent laser scanner measurements
                 laserCounter = laserCounter + deltaT;
                 newLaserData = false;
+
                 if (laserCounter >= 200)
                 {
                     for (int i = 0; i < LaserData.Length; i = i + laserStepSize)
                     {
-                        LaserData[i] = (long)(1000 * map.GetClosestWallDistance(x, y, t - initialT + laserAngles[i]));
+                        //LaserData[i] = (long)(1000 * map.GetClosestWallDistance(x, y, t - initialT + laserAngles[i]));
+                        LaserData[i] = (long)(1000 * map.GetClosestWallDistance(x, y, t - 1.57 + laserAngles[i]));
                     }
                     laserCounter = 0;
                     newLaserData = true;
@@ -650,7 +658,7 @@ namespace DrRobot.JaguarControl
             //int fileCnt= 0;
             //changed here
             String date = DateTime.Now.Year.ToString() + "-" + DateTime.Now.Month.ToString() + "-" + DateTime.Now.Day.ToString() + "-" + DateTime.Now.Minute.ToString();
-            streamPath_ = "../../../../Lab4LoggingData/E190Q_" + jaguarControl.fileName + ".csv";
+            streamPath_ = "./E190Q_" + jaguarControl.fileName + ".csv";
             ToString();
             logFile = File.CreateText(streamPath_);
             logFile.Close();
@@ -715,7 +723,7 @@ namespace DrRobot.JaguarControl
 
                 String newData = time.ToString() + ", " + x.ToString() + " ," + y.ToString() + " , " + t.ToString() + ",";
 
-                if (logParticleEst)
+/*                if (logParticleEst)
                     newData += x_est + "," + y_est + "," + t_est + ",";
 
                 if (logParticles)
@@ -728,7 +736,10 @@ namespace DrRobot.JaguarControl
                 {
                     for (int i = 0; i < LaserData.Length; i = i + laserStepSize)
                         newData += LaserData[i] + ",";
-                }
+                }*/
+                for (int i = 0; i < numParticles; i++)
+                    newData += distDiffs[i] + ",";
+
 
                 newData += "";
                 
@@ -869,55 +880,6 @@ namespace DrRobot.JaguarControl
         }
 
 
-        // THis function is called to follow a trajectory constructed by PRMMotionPlanner()
-     /*   
-        private void trackPath()
-        {
-            if (pointReached)
-            {
-                trajPoints.Remove(trajPoints[0]);
-
-                if (trajPoints.Count == 0)
-                {
-                    if (jaguarControl.Simulating())
-                        simulatedJaguar.DcMotorVelocityNonTimeCtrAll(0, 0, 0, 0, 0, 0);
-                    else
-                        realJaguar.DcMotorVelocityNonTimeCtrAll(0, 0, 0, 0, 0, 0);
-
-                    jaguarControl.controlMode = jaguarControl.MANUAL;
-
-                }
-                else
-                {
-                    desiredX = trajPoints[0].First;
-                    desiredY = trajPoints[0].Second;
-                    try
-                    {
-                        double nextX = trajPoints[1].First;
-                        double nextY = trajPoints[1].Second;
-                        desiredT = Math.Atan2(nextY - desiredY, nextX - desiredX);
-                    }
-                    catch
-                    {
-                        ;
-                    }
-                    //desiredT = Math.Atan2(desiredY - y_est, desiredX - x_est);
-                    NormalizeAngles(desiredT, Math.PI / 2);
-                    pointReached = false;
-                }
-
-            //   FlyToSetPoint();
-                return;
-            }
-            else
-            {
-                desiredX = trajPoints[0].First;
-                desiredY = trajPoints[0].Second;
-                desiredT = Math.Atan2(desiredY - y, desiredX - x);
-                FlyToSetPoint();
-            }
-        }
-        */
         #endregion
 
 
@@ -1033,228 +995,238 @@ namespace DrRobot.JaguarControl
 
         #endregion
 
-        #region ParticleFilter Diana
-        public void PropagateParticles()
-        {
-            //Console.WriteLine("propagated particles");
-            double wheelstdR = 0.4 * wheelDistanceR; //40% of distance travelled by wheel
-            double wheelstdL = 0.4 * wheelDistanceL; //m
+     
 
-            //double gyrostd = 0.1;
-            //gyroAngle = integrate(currentGyro_z, gyro_timestep): trapezoidal method
-            //gyroAngle = deltaT * (lastGyro_z + currentGyro_z) / 2; //gyroAngle traveled 
-
-            for (int p = 0; p < numParticles; p++)
-            {
-
-                wheelDistRandR = wheelDistanceR + wheelstdR * RandomGaussian(); //add random error to odometry, with wheel std deviation
-                wheelDistRandL = wheelDistanceL + wheelstdL * RandomGaussian();
-                double distTravelledRand = (wheelDistRandR + wheelDistRandL) / 2;
-                double angleTravelledRand = (wheelDistRandR - wheelDistRandL) / (2 * robotRadius);
-                double deltaXRand = distTravelledRand * Math.Cos(particles[p].t + angleTravelledRand / 2);
-                double deltaYRand = distTravelledRand * Math.Sin(particles[p].t + angleTravelledRand / 2);
-
-                //propagate particles with odometry
-                propagatedParticles[p].x = particles[p].x + deltaXRand;
-                propagatedParticles[p].y = particles[p].y + deltaYRand;
-                propagatedParticles[p].t = particles[p].t + angleTravelledRand;//COMMENTED
-                // partAngle = gyroAngle + gyrostd * RandomGaussian(); //add random error to gyroAngle traveled //COMMENT THIS
-                //propagatedParticles[p].t = particles[p].t + partAngle;//COMMENTED
-                NormalizeAngles(propagatedParticles[p].t);
-
-            }
-            //update last Gyro_z
-            //lastGyro_z = currentGyro_z;
-        }
-
-        public void CalculateAllWeights()
-        {
-            //Console.WriteLine("calculating all weights");
-            for (int p = 0; p < numParticles; p++)
-            {
-                CalculateWeight(p);
-            }
-        }
-
-        public double FindMaxWeight()
-        {
-            //Console.WriteLine("finding max weight");
-            maxweight = 0;
-            double currweight;
-            for (int p = 0; p < numParticles; p++)
-            {
-                currweight = propagatedParticles[p].w;
-                if (currweight > maxweight)
-                {
-                    maxweight = currweight;
-                }
-            }
-            return maxweight;
-        }
-
-        public void NormalizeWeights()
-        {
-            //Console.WriteLine("normalizing weights");
-            maxweight = FindMaxWeight();
-            for (int p = 0; p < numParticles; p++)
-            {
-                propagatedParticles[p].w = propagatedParticles[p].w / maxweight;
-
-            }
-        }
-
-        public void addToTempParticles(int p, int n, int count)
-        {
-            for (int i = 0; i < n; i++)
-            {
-                tempParticles[count + i] = propagatedParticles[p];
-            }
-        }
-
-        public void Resample()
-        {
-            //Console.WriteLine("resampling");
-            int count = 0;
-            for (int p = 0; p < numParticles; p++)
-            {
-                if (propagatedParticles[p].w < 0.25)
-                { //may need to tune these weight bounds
-                    addToTempParticles(p, 1, count);
-                    count += 1;
-                }
-
-                else if (propagatedParticles[p].w < 0.4)
-                {
-                    addToTempParticles(p, 2, count);
-                    count += 2;
-                }
-
-                else if (propagatedParticles[p].w < 0.7)
-                {
-                    addToTempParticles(p, 3, count);
-                    count += 3;
-                }
-
-                else if (propagatedParticles[p].w <= 1.0)
-                {
-                    addToTempParticles(p, 4, count);
-                    count += 4;
-                }
-
-            }
-
-            for (int j = 0; j < numParticles; j++)
-            {
-                int r = random.Next(count); //nonnegative value greater than or equal to 0 and less than maxValue
-                propagatedParticles[j].x = tempParticles[r].x;
-                propagatedParticles[j].y = tempParticles[r].y;
-                propagatedParticles[j].t = tempParticles[r].t;
-                propagatedParticles[j].w = tempParticles[r].w;
-                /*particles[j].x = tempParticles[r].x;
-                particles[j].y = tempParticles[r].y;
-                particles[j].t = tempParticles[r].t;
-                particles[j].w = tempParticles[r].w;*/
-
-
-            }
-        }
-
+        #region ParticleFilter Kat
+        
         public void LocalizeEstWithParticleFilter()
         {
-            // To start, just set the estimated to be the actual for simulations
-            // This will not be necessary when running the PF lab
+            propagateParticles(); //use odometry to estimate new particle positions
 
-            // ****************** Additional Student Code: Start ************
-            PropagateParticles();
-            //check for new laser data by checking the sum of the laser data
-            for (int i = 0; i < LaserData.Length; i = i + laserStepSize)
+            if ((distanceTravelled != 0 || angleTravelled != 0) && newLaserData)
             {
-                lasersum += LaserData[i];
-            }
-            if (lasersum != prevLaser)
-            {
-                newLaserData = true;
+                resampleParticles(); //if new data resample particles based on new measurements
+
             }
             else
             {
-                newLaserData = false;
+                copyPartsNoResample(); //otherwise just copy the propagated data
             }
-            prevLaser = lasersum;
-
-            if ((newOdom) || (newLaserData))
-            {
-                CalculateAllWeights();
-                NormalizeWeights();
-                Resample();
-            }
-
-            for (int p = 0; p < numParticles; p++)
-            {
-                particles[p].x = propagatedParticles[p].x;
-                particles[p].y = propagatedParticles[p].y;
-                particles[p].t = propagatedParticles[p].t;
-                particles[p].w = propagatedParticles[p].w;
-            }
-
-            // Put code here to calculate x_est, y_est, t_est using a PF
-            x_est = 0; y_est = 0; t_est = 0;
-            for (int p = 0; p < numParticles; p++)
-            {
-                x_est += (particles[p].x);
-                y_est += (particles[p].y);
-            }
-            x_est = x_est / numParticles; //x_est and y_est are averages of the x and y states
-            y_est = y_est / numParticles;
-
-            //taking average of angles is tricky... 
-            double re_part = 0, im_part = 0;
-            for (int p = 0; p < numParticles; p++)
-            {
-                //first convert angles to complex numbers on the unit circle (r = 1)
-                re_part += Math.Cos(particles[p].t);
-                im_part += Math.Sin(particles[p].t);
-            }
-            //then calculate mean of the complex numbers and find the angle of the mean complex number
-            t_est = Math.Atan2(im_part / numParticles, re_part / numParticles);
-            // ****************** Additional Student Code: End   ************
+            calcStateEstimates(); //calculate state estimate based on new particle position
 
         }
 
-        // Particle filters work by setting the weight associated with each
-        // particle, according to the difference between the real robot 
-        // range measurements and the predicted measurements associated 
-        // with the particle.
-        // This function should calculate the weight associated with particle p.
-
-        void CalculateWeight(int p)
+        public void propagateParticles()
         {
-            double laserstd = 100; //mm
-            long z;
-            double particlerange;
 
-            // ****************** Additional Student Code: Start ************
+            double randDistL, randDistR;
+            double partDist, partAngle;
+            maxweight = -1;
 
-            // Put code here to calculated weight. Feel free to use the
-            // function map.GetClosestWallDistance from Map.cs.
-            Weights = new double[LaserData.Length];
-            double weight = 1;
+
+            for (int i = 0; i < numParticles; ++i)
+            {
+                //add random error to distance travelled by each wheel
+                randDistL = wheelDistanceL * (1 + (2 * random.NextDouble() - 1) * 0.3);
+                randDistR = wheelDistanceR * (1 + (2 * random.NextDouble() - 1) * 0.3);
+
+                //calculate the angle and distance travelled by the particle
+                partDist = (randDistL + randDistR) / 2;
+                partAngle = (randDistR - randDistL) / (2 * robotRadius);
+
+                propagatedParticles[i].x = particles[i].x + partDist * Math.Cos(particles[i].t + partAngle / 2);
+                propagatedParticles[i].y = particles[i].y + partDist * Math.Sin(particles[i].t + partAngle / 2);
+                propagatedParticles[i].t = particles[i].t + partAngle;
+                //propagatedParticles[i].t = 
+                NormalizeAngles(propagatedParticles[i].t);
+                propagatedParticles[i].w = particles[i].w;
+
+                //Calculate weights based on new position
+                if (newLaserData && newOdom)
+                {
+                    propagatedParticles[i].w = CalculateWeight(i);
+                    maxweight = Math.Max(propagatedParticles[i].w, maxweight);  //calculate max weight to normalize the weights
+                }
+
+            }
+
+        }
+
+
+       
+
+        public void resampleParticles()
+        {
+            //resample Particles based on new weights
+            Particle[] tempParticles = new Particle[numParticles * 8];
+            int count = 0;
+
+            for (int i = 0; i < numParticles; i++)
+            {
+                propagatedParticles[i].w /= maxweight;
+                if (propagatedParticles[i].w < 0)
+                {
+                    //throw away particles with really low weights and replace with random ones
+                    //should help with kidnap robot problem
+                    double rc = random.NextDouble();
+
+                    tempParticles[count] = new Particle(SetRandomPos());
+                    count++;
+                }
+                else if (propagatedParticles[i].w < 0.25)
+                {
+                    tempParticles[count] = new Particle(propagatedParticles[i]);
+                    count++;
+                }
+                else if (propagatedParticles[i].w < 0.5)
+                {
+                    for (int j = 0; j < 2; j++)
+                    {
+                        tempParticles[count] = new Particle(propagatedParticles[i]);
+                        count++;
+                    }
+
+                }
+                else if (propagatedParticles[i].w < 0.75)
+                {
+                    for (int j = 0; j < 3; j++)
+                    {
+                        tempParticles[count] = new Particle(propagatedParticles[i]);
+                        count++;
+                    }
+                }
+                else
+                {
+                    for (int j = 0; j < 4; j++)
+                    {
+                        tempParticles[count] = new Particle(propagatedParticles[i]);
+                        count++;
+                    }
+                }
+
+            }
+
+            for (int i = 0; i < numParticles; i++)
+            {
+                double dx = random.NextDouble();
+                int r = random.Next(count);
+                int pi = random.Next(numParticles);
+                if (dx <= 00)            //generate random particle 1.5% of the time
+                    particles[i] = new Particle(SetRandomPos());
+                else if (dx <= 0.3)         //randomly sample from the current particle set 30% of the time
+                {
+                    particles[i] = new Particle(propagatedParticles[pi]);
+                }
+                else                        // resample with weighted particles rest of the time
+                    particles[i] = new Particle(tempParticles[r]);
+
+
+
+            }
+
+        }
+
+        public void copyPartsNoResample()
+        {
+            //Function to just replace current particle set with propagated particle set without resampling
+            for (int i = 0; i < numParticles; i++)
+            {
+                particles[i] = new Particle(propagatedParticles[i]);
+
+            }
+
+        }
+
+        public void calcStateEstimates()
+        {
+            // Function to calculate state estimates based on particle filter localization
+            // Done by calculating weighted average of particles
+
+            //initialize variables
+            double sumx = 0;
+            double sumy = 0;
+            double sumtsin = 0;
+            double sumtcos = 0;
+            double wt = 0;
+
+            for (int i = 0; i < numParticles; i++)
+            {
+                wt += particles[i].w;
+                sumx += particles[i].x * particles[i].w;
+                sumy += particles[i].y * particles[i].w;
+                sumtsin += Math.Sin(particles[i].t);
+                sumtcos += Math.Cos(particles[i].t);
+            }
+
+
+            x_est = sumx / wt;
+            y_est = sumy / wt;
+            double tempT = Math.Atan2(sumtsin / numParticles, sumtcos / numParticles);
+            //t_est = NormalizeAngle(tempT);
+            NormalizeAngles(tempT);
+            t_est = tempT;
+        }
+
+
+
+        double CalculateWeight(int p)
+        {
+            // Particle filters work by setting the weight associated with each
+            // particle, according to the difference between the real robot 
+            // range measurements and the predicted measurements associated 
+            // with the particle.
+            // This function should calculate the weight associated with particle p.
+
+            double weight = 0;
+            double partWallDist = 0;
+            double laserDist;
+            double robWallDist;
+
+            double px = propagatedParticles[p].x;
+            double py = propagatedParticles[p].y;
+            double pt = propagatedParticles[p].t;
+
+
+
+            double maxLaserReading = laserMaxRange;
             for (int i = 0; i < LaserData.Length; i = i + laserStepSize)
             {
-                z = LaserData[i]; //mm
-                particlerange = map.GetClosestWallDistance(particles[p].x, particles[p].y, particles[p].t - initialT + laserAngles[i]) * 1000; //mm
-                Weights[i] = Math.Exp(-Math.Pow((z - particlerange), 2) / (2 * Math.Pow(laserstd, 2))); //normal distribution
-                weight *= Weights[i]; //multiply all the laser weights to represent particle's weight
+                double ang_p = pt - 1.57 + laserAngles[i];
+                double ang_r = t - 1.57 + laserAngles[i];
+                partWallDist = map.GetClosestWallDistance(px, py, ang_p);
+                robWallDist = map.GetClosestWallDistance(x, y, ang_r);
+                laserDist = LaserData[i] / 1000.0;//*LaserData[i] / 1000.0;
+                distDiffs[i] = laserDist - partWallDist;
+
+                if (partWallDist >= maxLaserReading && laserDist <= 1)
+                    weight += 0.1;
+                else if (partWallDist >= maxLaserReading && laserDist >= 1)
+                    weight += 0.001;
+                else if (partWallDist <= maxLaserReading && laserDist <= 2)
+                    weight += 0.001;
+                else
+                {
+                    double var = 0.25;
+                    double mu = laserDist;
+                    weight += 10 / (var * 2 * Math.PI) * Math.Exp(-(partWallDist - mu) * (partWallDist - mu) / (2 * var * var)); //Gaussian
+                }
             }
-            propagatedParticles[p].w = weight;
+
+            return weight;
+
         }
 
-
-        // This function is used to initialize the particle states 
-        // for particle filtering. It should pick a random location in the 
-        // environment for each particle by calling SetRandomPos
+       // Functions to Initialize Particle Set
 
         void InitializeParticles()
         {
+            // Create particles
+            for (int i = 0; i < particles.Length; i++)
+            {
+                particles[i] = new Particle();
+                propagatedParticles[i] = new Particle();
+            }
+
 
             // Set particles in random locations and orientations within environment
             for (int i = 0; i < numParticles; i++)
@@ -1264,43 +1236,58 @@ namespace DrRobot.JaguarControl
                 // or set particles at random locations.
 
                 if (jaguarControl.startMode == jaguarControl.UNKNOWN)
-                    SetRandomPos(i);
+                {
+                    particles[i] = new Particle(SetRandomPos());
+                }
                 else if (jaguarControl.startMode == jaguarControl.KNOWN)
-                    SetStartPos(i);
-            }
+                {
+                    particles[i] = new Particle(SetStartPos());
 
+                }
+            }
         }
+
+
 
         // For particle p, this function will select a valid position. It should
         // select the position randomly, with equal likelihood of being anywhere 
-        // in the environment. Should work for rectangular environments to make 
+        // in the environement. Should work for rectangular environments to make 
         // things easier.
 
-        void SetRandomPos(int p)
+        Particle SetRandomPos()
         {
 
             // ****************** Additional Student Code: Start ************
 
-            // Put code here to calculate the position, orientation of 
-            // particles[p]. Feel free to use the random.NextDouble() function. 
-            // It might be helpful to use boundaries defined in the
-            // Map.cs file (e.g. map.minX)
+            Particle p = new Particle();
 
-            particles[p].x = random.NextDouble() * (map.maxX - map.minX) + map.minX; //random double between minX and maxX
-            particles[p].y = random.NextDouble() * (map.maxY - map.minY) + map.minY; //random double between minY and maxY
-            particles[p].t = random.NextDouble() * (Math.PI + Math.PI) - Math.PI; //random double between pi and -pi
+            // ******************************************************************************
+            //                   without no throw zones
+            // ******************************************************************************
+            p.x = random.NextDouble() * (map.maxX - map.minX) + map.minX; //random double between minX and maxX
+            p.y = random.NextDouble() * (map.maxY - map.minY) + map.minY; //random double between minY and maxY
+            p.t = random.NextDouble() * (Math.PI + Math.PI) - Math.PI; //random double between pi and -pi
+            p.w = 0.1;
+            return p;
 
             // ****************** Additional Student Code: End   ************
         }
 
 
+
+
         // For particle p, this function will select a start predefined position. 
-        void SetStartPos(int p)
+        Particle SetStartPos()
         {
-            particles[p].x = initialX;
-            particles[p].y = initialY;
-            particles[p].t = initialT;
+            Particle p = new Particle();
+            p.x = initialX;
+            p.y = initialY;
+            p.t = initialT;
+            p.w = 0.5;
+            return p;
         }
+
+
 
         // Random number generator with gaussian distribution
         // Often random guassian numbers are used in particle filters. This
@@ -1322,350 +1309,12 @@ namespace DrRobot.JaguarControl
             return gauss;
         }
 
-
-
-
-
+       
         #endregion
-
-        //#region ParticleFilter Kat
-        //public void LocalizeEstWithParticleFilter()
-        //{
-        //    propagateParticles(); //use odometry to estimate new particle positions
-
-        //    if ((distanceTravelled != 0 || angleTravelled != 0) && newLaserData)
-        //    {
-        //        resampleParticles(); //if new data resample particles based on new measurements
-
-        //    }
-        //    else
-        //    {
-        //        copyPartsNoResample(); //otherwise just copy the propagated data
-        //    }
-        //    calcStateEstimates(); //calculate state estimate based on new particle position
-
-        //}
-
-        //public void propagateParticles()
-        //{
-
-        //    double randDistL, randDistR;
-        //    double partDist, partAngle;
-        //    maxWeight = -1;
-
-
-        //    for (int i = 0; i < numParticles; ++i)
-        //    {
-        //        //add random error to distance travelled by each wheel
-        //        randDistL = wheelDistanceL * (1 + (2 * random.NextDouble() - 1) * .8);
-        //        randDistR = wheelDistanceR * (1 + (2 * random.NextDouble() - 1) * .8);
-
-        //        //calculate the angle and distance travelled by the particle
-        //        partDist = (randDistL + randDistR) / 2;
-        //        partAngle = (randDistR - randDistL) / (2 * robotRadius);
-
-        //        propagatedParticles[i].x = particles[i].x + partDist * Math.Cos(particles[i].t + partAngle / 2);
-        //        propagatedParticles[i].y = particles[i].y + partDist * Math.Sin(particles[i].t + partAngle / 2);
-        //        propagatedParticles[i].t = particles[i].t + partAngle;
-        //        //propagatedParticles[i].t = 
-        //        NormalizeAngles(propagatedParticles[i].t);
-        //        propagatedParticles[i].w = particles[i].w;
-
-        //        //Calculate weights based on new position
-        //        propagatedParticles[i].w = CalculateWeight(i);
-        //        maxWeight = Math.Max(propagatedParticles[i].w, maxWeight);  //calculate max weight to normalize the weights
-
-        //    }
-
-        //}
-
-
-        //public void normalizeWeights()
-        //{
-        //    //Function to normalize weights. Not being used at the moment
-        //    //Correction step. Approximate Method
-        //    double maxW = 83.5;
-        //    double minW = 0.001;
-
-        //    double var = 0.75;
-
-
-        //    for (int i = 0; i < numParticles; i++)
-        //    {
-        //        if (maxW > 0)
-        //            propagatedParticles[i].w = (propagatedParticles[i].w - minW) / (maxW - minW);
-        //        if (propagatedParticles[i].w >= 1.0)
-        //            CalculateWeight(i);
-        //    }
-        //}
-
-        //public void resampleParticles()
-        //{
-        //    //resample Particles based on new weights
-        //    Particle[] tempParticles = new Particle[numParticles * 8];
-        //    int count = 0;
-
-        //    for (int i = 0; i < numParticles; i++)
-        //    {
-        //        propagatedParticles[i].w /= maxWeight;
-        //        if (propagatedParticles[i].w < 0.002)
-        //        {
-        //            //throw away particles with really low weights and replace with random ones
-        //            //should help with kidnap robot problem
-        //            double rc = random.NextDouble();
-
-        //            tempParticles[count] = new Particle(SetRandomPos());
-        //            count++;
-        //        }
-        //        else if (propagatedParticles[i].w < 0.25)
-        //        {
-        //            tempParticles[count] = new Particle(propagatedParticles[i]);
-        //            count++;
-        //        }
-        //        else if (propagatedParticles[i].w < 0.5)
-        //        {
-        //            for (int j = 0; j < 2; j++)
-        //            {
-        //                tempParticles[count] = new Particle(propagatedParticles[i]);
-        //                count++;
-        //            }
-
-        //        }
-        //        else if (propagatedParticles[i].w < 0.75)
-        //        {
-        //            for (int j = 0; j < 3; j++)
-        //            {
-        //                tempParticles[count] = new Particle(propagatedParticles[i]);
-        //                count++;
-        //            }
-        //        }
-        //        else
-        //        {
-        //            for (int j = 0; j < 4; j++)
-        //            {
-        //                tempParticles[count] = new Particle(propagatedParticles[i]);
-        //                count++;
-        //            }
-        //        }
-
-        //    }
-
-        //    for (int i = 0; i < numParticles; i++)
-        //    {
-        //        double dx = random.NextDouble();
-        //        int r = random.Next(count);
-        //        int pi = random.Next(numParticles);
-        //        if (dx <= 0.015)            //generate random particle 1.5% of the time
-        //            particles[i] = new Particle(SetRandomPos());
-        //        else if (dx <= 0.3)         //randomly sample from the current particle set 30% of the time
-        //        {
-        //            particles[i] = new Particle(propagatedParticles[pi]);
-        //        }
-        //        else                        // resample with weighted particles rest of the time
-        //            particles[i] = new Particle(tempParticles[r]);
-
-
-
-        //    }
-
-        //}
-
-        //public void copyPartsNoResample()
-        //{
-        //    //Function to just replace current particle set with propagated particle set without resampling
-        //    for (int i = 0; i < numParticles; i++)
-        //    {
-        //        particles[i] = new Particle(propagatedParticles[i]);
-
-        //    }
-
-        //}
-
-        //public void calcStateEstimates()
-        //{
-        //    // Function to calculate state estimates based on particle filter localization
-        //    // Done by calculating weighted average of particles
-
-        //    //initialize variables
-        //    double sumx = 0;
-        //    double sumy = 0;
-        //    double sumtsin = 0;
-        //    double sumtcos = 0;
-        //    double wt = 0;
-
-        //    for (int i = 0; i < numParticles; i++)
-        //    {
-        //        wt += particles[i].w;
-        //        sumx += particles[i].x * particles[i].w;
-        //        sumy += particles[i].y * particles[i].w;
-        //        sumtsin += Math.Sin(particles[i].t);
-        //        sumtcos += Math.Cos(particles[i].t);
-        //    }
-
-
-        //    x_est = sumx / wt;
-        //    y_est = sumy / wt;
-        //    double tempT = Math.Atan2(sumtsin / numParticles, sumtcos / numParticles);
-        //    //t_est = NormalizeAngle(tempT);
-        //    NormalizeAngles(tempT);
-        //    t_est = tempT;
-        //}
-
-
-
-        //double CalculateWeight(int p)
-        //{
-        //    // Particle filters work by setting the weight associated with each
-        //    // particle, according to the difference between the real robot 
-        //    // range measurements and the predicted measurements associated 
-        //    // with the particle.
-        //    // This function should calculate the weight associated with particle p.
-
-        //    double weight = 0;
-        //    double partWallDist = 0;
-        //    double laserDist;
-        //    double robWallDist;
-
-        //    double px = propagatedParticles[p].x;
-        //    double py = propagatedParticles[p].y;
-        //    double pt = propagatedParticles[p].t;
-
-
-
-        //    double maxLaserReading = laserMaxRange;
-        //    for (int i = 0; i < LaserData.Length; i = i + laserStepSize)
-        //    {
-        //        double ang_p = pt - 1.57 + laserAngles[i];
-        //        double ang_r = t - 1.57 + laserAngles[i];
-        //        partWallDist = map.GetClosestWallDistance(px, py, ang_p);
-        //        robWallDist = map.GetClosestWallDistance(x, y, ang_r);
-        //        laserDist = LaserData[i] / 1000.0;//*LaserData[i] / 1000.0;
-
-        //        if (partWallDist >= maxLaserReading && laserDist >= maxLaserReading)
-        //            weight += 0.1;
-        //        else if (partWallDist >= maxLaserReading && laserDist <= maxLaserReading)
-        //            weight += 0.001;
-        //        else if (partWallDist <= maxLaserReading && laserDist >= maxLaserReading)
-        //            weight += 0.001;
-        //        else
-        //        {
-        //            double var = 0.5;
-        //            double mu = laserDist;
-        //            weight += 10 / (var * 2 * Math.PI) * Math.Exp(-(partWallDist - mu) * (partWallDist - mu) / (2 * var * var)); //Gaussian
-        //        }
-        //    }
-
-        //    if (map.inMapArea(px, py))
-        //        return weight;
-        //    else
-        //        return 0.00;
-
-        //}
-
-       /* Functions to Initialize Particle Set*/
-
-        //void InitializeParticles()
-        //{
-        //    // Create particles
-        //    for (int i = 0; i < particles.Length; i++)
-        //    {
-        //        particles[i] = new Particle();
-        //        propagatedParticles[i] = new Particle();
-        //    }
-
-
-        //    // Set particles in random locations and orientations within environment
-        //    for (int i = 0; i < numParticles; i++)
-        //    {
-
-        //        // Either set the particles at known start position [0 0 0],  
-        //        // or set particles at random locations.
-
-        //        if (jaguarControl.startMode == jaguarControl.UNKNOWN)
-        //        {
-        //            particles[i] = new Particle(SetRandomPos());
-        //        }
-        //        else if (jaguarControl.startMode == jaguarControl.KNOWN)
-        //        {
-        //            particles[i] = new Particle(SetStartPos());
-
-        //        }
-        //    }
-        //}
-
-
-
-        //// For particle p, this function will select a valid position. It should
-        //// select the position randomly, with equal likelihood of being anywhere 
-        //// in the environement. Should work for rectangular environments to make 
-        //// things easier.
-
-        //Particle SetRandomPos()
-        //{
-
-        //    // ****************** Additional Student Code: Start ************
-
-        //    Particle p = new Particle();
-
-        //    int z = random.Next(map.numThrowZ);
-
-        //    double boundxMin = map.mapthrowZ[z].minx();
-        //    double boundxMax = map.mapthrowZ[z].maxx();
-        //    double boundyMin = map.mapthrowZ[z].miny();
-        //    double boundyMax = map.mapthrowZ[z].maxy();
-
-        //    p.x = random.NextDouble() * (boundxMax - boundxMin) + boundxMin;
-        //    p.y = random.NextDouble() * (boundyMax - boundyMin) + boundyMin;
-        //    p.t = (2 * random.NextDouble() - 1) * Math.PI;
-        //    p.w = 0.05;
-
-        //    return p;
-
-        //    // ****************** Additional Student Code: End   ************
-        //}
-
-
-
-
-        //// For particle p, this function will select a start predefined position. 
-        //Particle SetStartPos()
-        //{
-        //    Particle p = new Particle();
-        //    p.x = initialX;
-        //    p.y = initialY;
-        //    p.t = initialT;
-        //    p.w = 0.5;
-        //    return p;
-        //}
-
-
-
-        //// Random number generator with gaussian distribution
-        //// Often random guassian numbers are used in particle filters. This
-        //// function might help.
-
-        //double RandomGaussian()
-        //{
-        //    double U1, U2, V1 = 0, V2;
-        //    double S = 2.0;
-        //    while (S >= 1.0)
-        //    {
-        //        U1 = random.NextDouble();
-        //        U2 = random.NextDouble();
-        //        V1 = 2.0 * U1 - 1.0;
-        //        V2 = 2.0 * U2 - 1.0;
-        //        S = Math.Pow(V1, 2) + Math.Pow(V2, 2);
-        //    }
-        //    double gauss = V1 * Math.Sqrt((-2.0 * Math.Log(S)) / S);
-        //    return gauss;
-        //}
-
-
-
-
-
-        //#endregion
-
+        
+        #region ParticleFilter Combined
+       
+        #endregion
 
         #region Motion Control 
         private void PRMMotionPlanner()
