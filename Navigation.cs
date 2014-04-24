@@ -17,7 +17,6 @@ namespace DrRobot.JaguarControl
         public double x_des, y_des, t_des;
         public double desiredX, desiredY, desiredT;
         public double maxweight;
-        public double gyro_timestep;
         public double gyroAngle;
         public double partAngle;
         public bool newOdom = false;
@@ -96,7 +95,7 @@ namespace DrRobot.JaguarControl
         public Particle[] particles;
         public Particle[] propagatedParticles;
         public Particle[] tempParticles;
-        public int numParticles = 400;
+        public int numParticles = 1000;
         public double K_wheelRandomness = 0.15;//0.25
         public static Random random = new Random();
         public bool newLaserData = false;
@@ -108,7 +107,9 @@ namespace DrRobot.JaguarControl
         private int laserStepSize = 10; 
         public double[] distDiffs;
 
-
+        double wheelstdR = 0.3;
+        double wheelstdL = 0.3;
+        double gyrostd = 0.03;
         public List<Tuple<double, double>> trajPoints = new List<Tuple<double, double>>(); //trajectory to track
         bool pointReached = false;
         bool pathDefined = false;
@@ -254,7 +255,7 @@ namespace DrRobot.JaguarControl
             
             // Set random start for particles
             InitializeParticles();
-            //gyroAngle = initialT;
+            gyroAngle = initialT;
 
             // Set default to no motionPlanRequired
             motionPlanRequired = true;
@@ -348,26 +349,7 @@ namespace DrRobot.JaguarControl
                 if (jaguarControl.controlMode == jaguarControl.AUTONOMOUS)
                 {
 
-                    // Check if we need to create a new trajectory
-                    /*if (motionPlanRequired)
-                    {
-                        // Construct a new trajectory (lab 5) if not defined yet
-                        if (!pathDefined && trackTrajPD) 
-                        {
-                           definePath();
-                        }
-                        PRMMotionPlanner();
-                        motionPlanRequired = false;
-                    }
-                    */
-                    // Drive the robot to a desired Point (lab 3)
-                    //FlyToSetPoint();
-
-                    // Follow the trajectory instead of a desired point (lab 3)
-                 //   if (trackTrajPD)
-                  //  {
-
-                    if (!pathDefined && trackTrajPD)
+                    if (!pathDefined) 
                     {
                         definePath();
                         
@@ -385,11 +367,6 @@ namespace DrRobot.JaguarControl
                     }
                 
 
-                 //   }
-                  //  else 
-                   // {
-                      //  FlyToSetPoint();
-                   // }
                     // Actuate motors based actuateMotorL and actuateMotorR
                     if (jaguarControl.Simulating())
                     {
@@ -562,7 +539,6 @@ namespace DrRobot.JaguarControl
 
             motorSignalL = (short)(desiredRotRateL);
             motorSignalR = (short)(desiredRotRateR);
-
         }
         public void CalcMotorSignals()
         {
@@ -721,7 +697,7 @@ namespace DrRobot.JaguarControl
                 TimeSpan ts = DateTime.Now - startTime;
                 time = ts.TotalSeconds;
 
-                String newData = time.ToString() + ", " + x.ToString() + " ," + y.ToString() + " , " + t.ToString() + ",";
+                String newData = time.ToString() + ", " + x.ToString() + " ," + y.ToString() + " , " + t.ToString() + ","+ gyroAngle.ToString();
 
 /*                if (logParticleEst)
                     newData += x_est + "," + y_est + "," + t_est + ",";
@@ -737,8 +713,8 @@ namespace DrRobot.JaguarControl
                     for (int i = 0; i < LaserData.Length; i = i + laserStepSize)
                         newData += LaserData[i] + ",";
                 }*/
-                for (int i = 0; i < numParticles; i++)
-                    newData += distDiffs[i] + ",";
+                //for (int i = 0; i < numParticles; i++)
+                  //  newData += distDiffs[i] + ",";
 
 
                 newData += "";
@@ -1021,11 +997,16 @@ namespace DrRobot.JaguarControl
 
             double randDistL, randDistR;
             double partDist, partAngle;
+
+            double distTravelledRand, angleTravelledRand, deltaXRand, deltaYRand, angleTravelledGyro;
+
             maxweight = -1;
 
 
             for (int i = 0; i < numParticles; ++i)
             {
+				#region add random error - uniform
+                
                 //add random error to distance travelled by each wheel
                 randDistL = wheelDistanceL * (1 + (2 * random.NextDouble() - 1) * 0.3);
                 randDistR = wheelDistanceR * (1 + (2 * random.NextDouble() - 1) * 0.3);
@@ -1033,10 +1014,48 @@ namespace DrRobot.JaguarControl
                 //calculate the angle and distance travelled by the particle
                 partDist = (randDistL + randDistR) / 2;
                 partAngle = (randDistR - randDistL) / (2 * robotRadius);
+                angleTravelledGyro = partAngle;
 
-                propagatedParticles[i].x = particles[i].x + partDist * Math.Cos(particles[i].t + partAngle / 2);
-                propagatedParticles[i].y = particles[i].y + partDist * Math.Sin(particles[i].t + partAngle / 2);
-                propagatedParticles[i].t = particles[i].t + partAngle;
+                //GYROSCOPE OUTPUT IN PARTICLE FILTER - TO TEST
+                //ALSO TRY COMBINING BOTH ODOMETRY AND GYRO (Chris recommended .8 gyro and .2 odometry)
+                /*
+                if (jaguarControl.Simulating())
+                    angleTravelledGyro = partAngle;
+                else
+                {
+                       gyroAngle = getGyroRadian();
+                       angleTravelledGyro = gyroAngle * (1 + gyrostd * RandomGaussian());
+                }
+                */
+                deltaXRand = partDist * Math.Cos(particles[i].t + angleTravelledGyro / 2);
+                deltaYRand = partDist * Math.Sin(particles[i].t + angleTravelledGyro / 2);
+                  
+                gyroAngle = getGyroRadian(); 
+				//*/
+                #endregion
+                #region add random error - gaussian + pf
+               /* 
+                // DO NOT USE - Uniform Propagation works much better
+                
+                wheelDistRandR = wheelDistanceR*(1 + wheelstdR * RandomGaussian()); //add random error to odometry, with wheel std deviation
+                wheelDistRandL = wheelDistanceL * (1 + wheelstdL * RandomGaussian());
+                distTravelledRand = (wheelDistRandR + wheelDistRandL) / 2;
+                angleTravelledRand = (wheelDistRandR - wheelDistRandL) / (2 * robotRadius);
+                //if (jaguarControl.Simulating())
+                    angleTravelledGyro = angleTravelledRand;
+               // else
+                //{
+                      gyroAngle = getGyroRadian();
+               //       angleTravelledGyro = gyroAngle * (1 + gyrostd * RandomGaussian());
+                //}
+                
+                deltaXRand = distTravelledRand * Math.Cos(particles[i].t + angleTravelledGyro / 2);
+                deltaYRand = distTravelledRand * Math.Sin(particles[i].t + angleTravelledGyro / 2);
+                //*/
+				#endregion
+                propagatedParticles[i].x = particles[i].x + deltaXRand;
+                propagatedParticles[i].y = particles[i].y + deltaYRand;
+                propagatedParticles[i].t = particles[i].t + angleTravelledGyro;
                 //propagatedParticles[i].t = 
                 NormalizeAngles(propagatedParticles[i].t);
                 propagatedParticles[i].w = particles[i].w;
@@ -1463,20 +1482,27 @@ namespace DrRobot.JaguarControl
             return trajPoints[0];
         }
 
+        //this function is used to define the points to follow for the final competition in E190
         public void definePath()
         {
             trajPoints.Clear();
             trajPoints.Add(new Tuple<double, double>(0, 0));
+            trajPoints.Add(new Tuple<double, double>(0, 4));
+            trajPoints.Add(new Tuple<double, double>(0, 9));
+            trajPoints.Add(new Tuple<double, double>(4, 8));
+            trajPoints.Add(new Tuple<double, double>(7, 8));
+            trajPoints.Add(new Tuple<double, double>(7, 4));
+            trajPoints.Add(new Tuple<double, double>(7, 0.5));
             trajPoints.Add(new Tuple<double, double>(2.5, 0));
             trajPoints.Add(new Tuple<double, double>(3, -1));
             trajPoints.Add(new Tuple<double, double>(3, -3));
            // trajPoints.Add(new Tuple<double, double>(4, -4));
-            trajPoints.Add(new Tuple<double, double>(1.5, -6));
+            //trajPoints.Add(new Tuple<double, double>(1.5, -6));
            // trajPoints.Add(new Tuple<double, double>(6, -8));
-            trajPoints.Add(new Tuple<double, double>(1, -12));
-            trajPoints.Add(new Tuple<double, double>(1, -17));
+            //trajPoints.Add(new Tuple<double, double>(1, -12));
+            //trajPoints.Add(new Tuple<double, double>(1, -17));
 
-            trajPoints.Add(new Tuple<double, double>(1, -24));
+            //trajPoints.Add(new Tuple<double, double>(1, -24));
             //trajPoints.Add(new Tuple<double, double>(1, 0));
             //trajPoints.Add(new Tuple<double, double>(1, 1))2
             //trajPoints.Add(new Tuple<double, double>(1, 2));
@@ -1575,50 +1601,22 @@ namespace DrRobot.JaguarControl
                 return 0.0;
         }
 
-
-        private void setOrientation()
+        protected double FromDegToRad(double degAngle)
         {
-            //this function sets orientation during point tracking once the robot has reached within
-            //the distance threshold
-            //In this case forward velocity would be zero
-            // Use a proportional control for rotational velocity 
-
-            double K_rot = 1.5;
-            double thetaThresh = Math.PI / 18;
-            double deltaTheta;
-            double w;
-            double SR, SL;
-            double desiredVR, desiredVL;
-
-            deltaTheta = desiredT - t;
-            w = K_rot * deltaTheta;
-
-            if (Math.Abs(deltaTheta) < thetaThresh)
-                w = 0;
-
-            //calculate desired velocities from v and w
-            SR = w / 2;
-            SL = -w / 2;
-            desiredVR = SR * 2.0 * robotRadius / wheelRadius;
-            desiredVL = SL * 2.0 * robotRadius / wheelRadius;
-
-            //don't exceed the maximum velocity           
-            if (Math.Abs(desiredVR) > maxVelocity)
-            {
-                desiredVL *= maxVelocity / Math.Abs(desiredVR);
-                desiredVR = Math.Sign(desiredVR) * maxVelocity;
-            }
-            if (Math.Abs(desiredVL) > maxVelocity)
-            {
-                desiredVR *= maxVelocity / Math.Abs(desiredVL);
-                desiredVL = Math.Sign(desiredVL) * maxVelocity;
-            }
-
-            //set the rotation rate
-            desiredRotRateR = (short)(desiredVR * pulsesPerRotation / (Math.PI * 2));
-            desiredRotRateL = (short)(desiredVL * pulsesPerRotation / (Math.PI * 2));
+            double radAngle = degAngle * Math.PI / 180;
+            return radAngle;
         }
-
+        
+        double getGyroRadian()
+        {
+            double gyroOut = jaguarControl.getGyro_z();     // output from gyroscope
+            double angRateDeg = (gyroOut - 4.945)/0.07;     // convert to angular rate based on calibration
+            if (Math.Abs(gyroOut) <= 10) angRateDeg = 0;    // account for deadband
+            double angDeg = angRateDeg * deltaT / 1000;     // multiply by time to get angular displacement  
+            double angRad = FromDegToRad(angDeg);           // convert to radians
+            Console.WriteLine(angDeg);
+            return angRad;
+        }
         #endregion
 
         
